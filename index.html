@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive PPL Workout Planner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Soothing Stone & Energetic Cyan -->
+    <!-- Application Structure Plan: A dashboard layout with a prominent weekly day-selector navigation. The main view dynamically displays the selected day's workout in a clear, card-based format. This structure is chosen for task-oriented usability, allowing quick access to the daily routine. An interactive chart provides a weekly overview of muscle group distribution, enhancing understanding of the plan's balance. A modal is used for general guidelines to keep the main interface clean. -->
+    <!-- Visualization & Content Choices: 1. Report Info: Weekly workout split muscle focus. Goal: Visualize muscle group balance. Viz/Presentation Method: Donut Chart (Chart.js/Canvas). Interaction: Hovering over segments shows muscle group name and exercise count. Justification: A donut chart provides an intuitive, at-a- glance understanding of how the workout week is balanced, which is more engaging than a list. 2. Report Info: Daily exercise list. Goal: Present daily tasks clearly. Viz/Presentation Method: Styled HTML cards with embedded images/links. Interaction: JS-powered day selection tabs to dynamically show/hide content. Clicking on exercise image/link opens external YouTube search for demonstration. Justification: Cards neatly organize information for each exercise, and dynamic tabs prevent information overload, making the single page easy to navigate. Adding images and video links enhances visual understanding and provides immediate access to exercise form guidance. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+        }
+        .day-btn.active {
+            background-color: #06b6d4; /* cyan-500 */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .day-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+            height: auto;
+            max-height: 400px;
+        }
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        .modal-content {
+            transition: transform 0.25s ease;
+        }
+        .exercise-thumbnail {
+            width: 80px; /* Smaller thumbnail */
+            height: 60px; /* Maintain aspect ratio */
+            object-fit: cover;
+            border-radius: 8px; /* rounded-lg */
+            margin-right: 12px; /* mr-3 */
+            flex-shrink: 0;
+            cursor: pointer;
+            box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); /* shadow-sm */
+            transition: transform 0.1s ease-in-out;
+        }
+        .exercise-thumbnail:hover {
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div id="app" class="min-h-screen container mx-auto p-4 md:p-8">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-slate-900">5-Day PPL Workout Plan</h1>
+            <p class="text-slate-500 mt-2">Your interactive guide to strength and conditioning.</p>
+        </header>
+
+        <main class="space-y-12">
+            <section id="weekly-overview">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex flex-col lg:flex-row gap-8 items-center">
+                        <div class="w-full lg:w-1/2">
+                            <h2 class="text-2xl font-bold text-slate-800 mb-4">Weekly Muscle Distribution</h2>
+                            <p class="text-slate-600 mb-4">This chart shows the breakdown of exercises targeting each major muscle group throughout your 5 training days. Use it to understand the balance of your routine.</p>
+                             <button id="guidelinesBtn" class="w-full bg-slate-200 text-slate-700 font-semibold py-3 px-6 rounded-lg hover:bg-slate-300 transition-colors">
+                                View General Guidelines
+                            </button>
+                        </div>
+                        <div class="w-full lg:w-1/2">
+                            <div class="chart-container">
+                                <canvas id="muscleGroupChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="daily-workout">
+                <h2 class="text-3xl font-bold text-center mb-6 text-slate-800">Today's Focus</h2>
+
+                <nav id="day-selector" class="flex flex-wrap justify-center gap-2 mb-8">
+                </nav>
+
+                <div id="workout-details" class="bg-white p-4 sm:p-8 rounded-2xl shadow-lg border border-slate-200 min-h-[400px]">
+                    <h3 id="workout-day-title" class="text-2xl font-bold text-cyan-600 mb-1"></h3>
+                    <p id="workout-day-focus" class="text-slate-500 mb-6"></p>
+                    <div id="exercises-grid" class="space-y-4">
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="text-center mt-12 text-slate-400">
+            <p>Stay consistent and trust the process.</p>
+        </footer>
+    </div>
+    
+    <div id="guidelinesModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 opacity-0 pointer-events-none z-50">
+        <div class="modal-content bg-white w-full max-w-2xl rounded-2xl shadow-xl p-8 transform scale-95">
+            <h2 class="text-2xl font-bold mb-4">General Guidelines</h2>
+            <div id="modal-content-body" class="text-slate-600 space-y-4 max-h-[70vh] overflow-y-auto pr-4">
+            </div>
+            <button id="closeModalBtn" class="mt-6 w-full bg-cyan-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-cyan-600 transition-colors">
+                Close
+
+            </button>
+        </div>
+    </div_>
+
+
+    <script>
+        const workoutData = {
+            days: [
+                {
+                    dayName: "Day 1: Push",
+                    focus: "Chest, Shoulders, Triceps",
+                    muscles: ["Chest", "Shoulders", "Triceps"],
+                    schedule: [
+                        { type: 'lift', name: 'Barbell Bench Press', sets: '4', reps: '6-8', videoUrl: 'https://www.youtube.com/results?search_query=barbell+bench+press+form', thumbnailUrl: 'https://cdn.shopify.com/s/files/1/0088/6462/2231/articles/Bench_Press_1024x1024.jpg?v=1600000000' },
+                        { type: 'lift', name: 'Incline Dumbbell Press', sets: '4', reps: '8-12', videoUrl: 'https://www.youtube.com/results?search_query=incline+dumbbell+press+form', thumbnailUrl: 'https://qph.cf2.quoracdn.net/main-qimg-7840130f142b66a5b6c31023c0b02927-lq' },
+                        { type: 'lift', name: 'Standing Overhead Press', sets: '4', reps: '8-12', videoUrl: 'https://www.youtube.com/results?search_query=standing+overhead+press+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/2/22/Overhead_Press.JPG' },
+                        { type: 'lift', name: 'Dumbbell Lateral Raises', sets: '4', reps: '12-15', videoUrl: 'https://www.youtube.com/results?search_query=dumbbell+lateral+raises+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/0/02/Dumbbell_lateral_raise.png' },
+                        { type: 'lift', name: 'Triceps Pushdowns (Rope/Bar)', sets: '4', reps: '10-15', videoUrl: 'https://www.youtube.com/results?search_query=triceps+pushdowns+form', thumbnailUrl: 'https://exrx.net/Art/Pics/Pushdowns.jpg' },
+                        { type: 'lift', name: 'Overhead Dumbbell Extension', sets: '4', reps: '10-15', videoUrl: 'https://www.youtube.com/results?search_query=overhead+dumbbell+extension+form', thumbnailUrl: 'https://www.bodybuilding.com/fun/images/2012/overhead-dumbbell-extension-2.jpg' },
+                    ],
+                    cardio: {
+                        title: 'Low-Intensity Steady State (LISS) Cardio',
+                        duration: '20-30 minutes',
+                        details: 'Brisk walking, light jogging, or cycling at a conversational pace.'
+                    }
+                },
+                {
+                    dayName: "Day 2: Pull",
+                    focus: "Back, Biceps, Rear Delts",
+                    muscles: ["Back", "Biceps"],
+                    schedule: [
+                        { type: 'lift', name: 'Pull-ups or Lat Pulldowns', sets: '4', reps: 'to failure / 8-12', videoUrl: 'https://www.youtube.com/results?search_query=pullups+lat+pulldowns+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Wide-grip_pull-up.JPG/1200px-Wide-grip_pull-up.JPG' },
+                        { type: 'lift', name: 'Barbell Rows (Bent-Over)', sets: '4', reps: '6-10', videoUrl: 'https://www.youtube.com/results?search_query=barbell+rows+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/a/a2/Barbell_Row.JPG' },
+                        { type: 'lift', name: 'Seated Cable Rows', sets: '4', reps: '8-12', videoUrl: 'https://www.youtube.com/results?search_query=seated+cable+rows+form', thumbnailUrl: 'https://exrx.net/Art/Pics/SeatedCableRow.jpg' },
+                        { type: 'lift', name: 'Face Pulls (Cable)', sets: '4', reps: '12-15', videoUrl: 'https://www.youtube.com/results?search_query=face+pulls+form', thumbnailUrl: 'https://i.ytimg.com/vi/FWd0r8tXUxg/maxresdefault.jpg' },
+                        { type: 'lift', name: 'Barbell Bicep Curls', sets: '4', reps: '10-15', videoUrl: 'https://www.youtube.com/results?search_query=barbell+bicep+curls+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/b/b5/Barbell_curl.png' },
+                        { type: 'lift', name: 'Hammer Curls (Dumbbell)', sets: '4', reps: '10-15', videoUrl: 'https://www.youtube.com/results?search_query=hammer+curls+form', thumbnailUrl: 'https://www.burnthefatinnercircle.com/members/images/1546.jpeg' },
+                    ],
+                    core: {
+                        title: 'Abs & Core Circuit',
+                        schedule: [ 
+                            { type: 'core', name: 'Cable Crunches', sets: '4', reps: '10-15', videoUrl: 'https://www.youtube.com/results?search_query=cable+crunches+form', thumbnailUrl: 'https://i.ytimg.com/vi/S724hYtX2Cg/maxresdefault.jpg' },
+                            { type: 'core', name: 'Russian Twists', sets: '4', reps: '15-20 / side', videoUrl: 'https://www.youtube.com/results?search_query=russian+twists+form', thumbnailUrl: 'https://i.ytimg.com/vi/0d6y32U19eM/maxresdefault.jpg' },
+                            { type: 'core', name: 'Decline Crunches', sets: '4', reps: '15-20', videoUrl: 'https://www.youtube.com/results?search_query=decline+crunches+form', thumbnailUrl: 'https://www.bodybuilding.com/exercises/exerciseImages/variations/large/xdeclinecrunches1.jpg.pagespeed.ic.wW_rG8-yPz.jpg' },
+                            { type: 'core', name: 'Leg Raises (Lying)', sets: '4', reps: '15-20', videoUrl: 'https://www.youtube.com/results?search_query=lying+leg+raises+form', thumbnailUrl: 'https://www.bodybuilding.com/exercises/exerciseImages/variations/large/xlyinglegraise2.jpg.pagespeed.ic.K4D6O_2k0F.jpg' },
+                            { type: 'core', name: 'Plank', sets: '4', reps: '30-60s hold', videoUrl: 'https://www.youtube.com/results?search_query=plank+exercise+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/b/b2/Plank_exercise.jpg' }
+                        ]
+                    }
+                },
+                {
+                    dayName: "Day 3: Legs",
+                    focus: "Quads, Hamstrings, Glutes, Calves",
+                    muscles: ["Legs", "Calves"],
+                    schedule: [
+                        { type: 'lift', name: 'Barbell Squats', sets: '4', reps: '6-8', videoUrl: 'https://www.youtube.com/results?search_query=barbell+squats+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Squats.jpg/1200px-Squats.jpg' },
+                        { type: 'lift', name: 'Romanian Deadlifts (RDLs)', sets: '4', reps: '8-12', videoUrl: 'https://www.youtube.com/results?search_query=romanian+deadlifts+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Romanian_deadlift.jpg/1200px-Romanian_deadlift.jpg' },
+                        { type: 'lift', name: 'Leg Press', sets: '4', reps: '10-15', videoUrl: 'https://www.youtube.com/results?search_query=leg+press+form', thumbnailUrl: 'https://i.ytimg.com/vi/GvNWILLvjC0/maxresdefault.jpg' },
+                        { type: 'lift', name: 'Leg Curls', sets: '4', reps: '10-15', videoUrl: 'https://www.youtube.com/results?search_query=leg+curls+form', thumbnailUrl: 'https://exrx.net/Art/Pics/LyingLegCurl.jpg' },
+                        { type: 'lift', name: 'Leg Extensions', sets: '4', reps: '10-15', videoUrl: 'https://www.youtube.com/results?search_query=leg+extensions+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Leg_extension.png/1200px-Leg_extension.png' },
+                        { type: 'lift', name: 'Calf Raises', sets: '4', reps: '15-20', videoUrl: 'https://www.youtube.com/results?search_query=calf+raises+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Standing_Calf_Raises.jpg/1200px-Standing_Calf_Raises.jpg' },
+                    ],
+                    core: {
+                        title: 'Abs & Core Circuit (Optional on Leg Day)',
+                        schedule: [ 
+                            { type: 'core', name: 'Hanging Leg Raises', sets: '4', reps: '10-15', videoUrl: 'https://www.youtube.com/results?search_query=hanging+leg+raises+form', thumbnailUrl: 'https://www.bodybuilding.com/fun/images/2015/how-to-do-hanging-leg-raise-1.jpg' },
+                            { type: 'core', name: 'Ab Rollouts', sets: '4', reps: '8-12', videoUrl: 'https://www.youtube.com/results?search_query=ab+rollouts+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/1/1d/Ab_wheel_rollout.jpg' },
+                            { type: 'core', name: 'Side Planks', sets: '4', reps: '30-45s hold', videoUrl: 'https://www.youtube.com/results?search_query=side+plank+form', thumbnailUrl: 'https://i.ytimg.com/vi/NXrEaK92M-U/maxresdefault.jpg' }
+                        ]
+                    }
+                },
+                {
+                    dayName: "Day 4: Rest",
+                    focus: "Active Recovery & Cardio",
+                    muscles: ["Cardio"],
+                    schedule: [],
+                    cardio: {
+                        title: 'Dedicated LISS Cardio',
+                        duration: '30-45 minutes',
+                        details: 'Brisk walking, light jogging, or elliptical. You can also do foam rolling and mobility work.'
+                    }
+                },
+                {
+                    dayName: "Day 5: Upper Body",
+                    focus: "Mixed Push & Pull Volume/Accessory",
+                    muscles: ["Chest", "Back", "Shoulders", "Triceps", "Biceps"],
+                    schedule: [
+                        { type: 'lift', name: 'Incline Dumbbell Press (Lighter)', sets: '4', reps: '10-15', videoUrl: 'https://www.youtube.com/results?search_query=incline+dumbbell+press+form', thumbnailUrl: 'https://qph.cf2.quoracdn.net/main-qimg-7840130f142b66a5b6c31023c0b02927-lq' },
+                        { type: 'lift', name: 'Machine Chest Flyes', sets: '4', reps: '12-15', videoUrl: 'https://www.youtube.com/results?search_query=machine+chest+flyes+form', thumbnailUrl: 'https://i.ytimg.com/vi/V0P2e9j0d5c/maxresdefault.jpg' },
+                        { type: 'lift', name: 'Lat Pulldowns (varied grip)', sets: '4', reps: '10-15', videoUrl: 'https://www.youtube.com/results?search_query=lat+pulldowns+varied+grip+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Wide-grip_pull-up.JPG/1200px-Wide-grip_pull-up.JPG' },
+                        { type: 'lift', name: 'Single-Arm Dumbbell Rows', sets: '4', reps: '10-15/arm', videoUrl: 'https://www.youtube.com/results?search_query=single+arm+dumbbell+rows+form', thumbnailUrl: 'https://i.ytimg.com/vi/roS7P1P3oP4/maxresdefault.jpg' },
+                        { type: 'lift', name: 'Seated Dumbbell Shoulder Press', sets: '4', reps: '10-15', videoUrl: 'https://www.youtube.com/results?search_query=seated+dumbbell+shoulder+press+form', thumbnailUrl: 'https://i.ytimg.com/vi/0-vj_S3n6P8/maxresdefault.jpg' },
+                        { type: 'lift', name: 'Dumbbell Front Raises', sets: '4', reps: '12-15', videoUrl: 'https://www.youtube.com/results?search_query=dumbbell+front+raises+form', thumbnailUrl: 'https://i.ytimg.com/vi/h2YkS118YI4/maxresdefault.jpg' },
+                        { type: 'lift', name: 'Bent-Over Dumbbell Reverse Flyes', sets: '4', reps: '12-15', videoUrl: 'https://www.youtube.com/results?search_query=bent+over+dumbbell+reverse+flyes+form', thumbnailUrl: 'https://i.ytimg.com/vi/ttI9G9C_kLw/maxresdefault.jpg' },
+                        { type: 'lift', name: 'Triceps Overhead Extension', sets: '4', reps: '12-15', videoUrl: 'https://www.youtube.com/results?search_query=triceps+overhead+extension+form', thumbnailUrl: 'https://www.bodybuilding.com/fun/images/2012/overhead-dumbbell-extension-2.jpg' },
+                        { type: 'lift', name: 'Dumbbell Bicep Curls (varied)', sets: '4', reps: '12-15', videoUrl: 'https://www.youtube.com/results?search_query=dumbbell+bicep+curls+varied+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/b/b5/Barbell_curl.png' },
+                    ]
+                },
+                 {
+                    dayName: "Day 6: Lower Body",
+                    focus: "Hamstrings, Glutes & Core",
+                    muscles: ["Legs", "Calves", "Core"],
+                    schedule: [
+                        { type: 'lift', name: 'Leg Press (Lighter)', sets: '4', reps: '15-20', videoUrl: 'https://www.youtube.com/results?search_query=leg+press+form', thumbnailUrl: 'https://i.ytimg.com/vi/GvNWILLvjC0/maxresdefault.jpg' },
+                        { type: 'lift', name: 'Lying/Seated Leg Curls', sets: '4', reps: '12-18', videoUrl: 'https://www.youtube.com/results?search_query=lying+seated+leg+curls+form', thumbnailUrl: 'https://exrx.net/Art/Pics/LyingLegCurl.jpg' },
+                        { type: 'lift', name: 'Glute Bridges/Hip Thrusts', sets: '4', reps: '10-15', videoUrl: 'https://www.youtube.com/results?search_query=glute+bridges+hip+thrusts+form', thumbnailUrl: 'https://i.ytimg.com/vi/W4EwYmR_Wqg/maxresdefault.jpg' },
+                        { type: 'lift', name: 'Cable Pull-Throughs', sets: '4', reps: '12-15', videoUrl: 'https://www.youtube.com/results?search_query=cable+pull+throughs+form', thumbnailUrl: 'https://i.ytimg.com/vi/oQ_1u2kYF28/maxresdefault.jpg' },
+                        { type: 'lift', name: 'Calf Raises', sets: '4', reps: '20-30', videoUrl: 'https://www.youtube.com/results?search_query=calf+raises+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Standing_Calf_Raises.jpg/1200px-Standing_Calf_Raises.jpg' },
+                        { type: 'lift', name: 'Plank', sets: '4', reps: '30-60s hold', videoUrl: 'https://www.youtube.com/results?search_query=plank+exercise+form', thumbnailUrl: 'https://upload.wikimedia.org/wikipedia/commons/b/b2/Plank_exercise.jpg' },
+                        { type: 'lift', name: 'Leg Raises', sets: '4', reps: '15-20', videoUrl: 'https://www.youtube.com/results?search_query=leg+raises+form', thumbnailUrl: 'https://www.bodybuilding.com/exercises/exerciseImages/variations/large/xlyinglegraise2.jpg.pagespeed.ic.K4D6O_2k0F.jpg' },
+                    ]
+                },
+                {
+                    dayName: "Day 7: Rest",
+                    focus: "Full Recovery",
+                    muscles: ["Rest"],
+                    schedule: [],
+                    cardio: {
+                        title: 'Full Rest Day',
+                        duration: '',
+                        details: 'Focus on hydration and nutrition. Your body rebuilds and gets stronger on rest days. Don\'t skip them!'
+                    }
+                }
+            ],
+            guidelines: [
+                { title: 'Form Over Weight', text: 'Always prioritize proper form. If your form breaks down, lower the weight or reduce the reps to prevent injury.' },
+                { title: 'Progressive Overload', text: 'The most important principle for muscle growth. Aim to gradually increase the weight, reps, or sets over time. Even small improvements add up.' },
+                { title: 'Listen to Your Body', text: 'If you feel excessive pain (not just muscle soreness), take an extra rest day or modify the exercise. Recovery is as crucial as training.' },
+                { title: 'Rest Between Sets', text: 'For heavy compound lifts (e.g., Bench Press, Squats), rest 2-3 minutes. For isolation/accessory exercises, rest 60-90 seconds.' },
+                { title: 'Cool-down', text: 'After every workout, spend 5-10 minutes on static stretching, holding each stretch for 20-30 seconds. Focus on the muscles you worked that day.' }
+            ]
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const daySelector = document.getElementById('day-selector');
+            const workoutTitle = document.getElementById('workout-day-title');
+            const workoutFocus = document.getElementById('workout-day-focus');
+            const exercisesGrid = document.getElementById('exercises-grid');
+            
+            const dayMap = ["Day 7: Rest", "Day 1: Push", "Day 2: Pull", "Day 3: Legs", "Day 4: Rest", "Day 5: Upper Body", "Day 6: Lower Body"];
+            const today = new Date().getDay();
+            let activeDayIndex = workoutData.days.findIndex(d => d.dayName === dayMap[today]);
+            if (activeDayIndex === -1) activeDayIndex = 0;
+
+            function renderDaySelector() {
+                daySelector.innerHTML = '';
+                workoutData.days.forEach((day, index) => {
+                    const button = document.createElement('button');
+                    const dayShortName = day.dayName.split(':')[0];
+                    button.textContent = dayShortName;
+                    button.classList.add('day-btn', 'py-2', 'px-4', 'rounded-full', 'font-semibold', 'text-slate-600', 'bg-slate-100', 'hover:bg-cyan-500', 'hover:text-white');
+                    if (index === activeDayIndex) {
+                        button.classList.add('active');
+                    }
+                    button.addEventListener('click', () => {
+                        activeDayIndex = index;
+                        renderWorkout(index);
+                        const allButtons = daySelector.querySelectorAll('button');
+                        allButtons.forEach(btn => btn.classList.remove('active'));
+                        button.classList.add('active');
+                    });
+                    daySelector.appendChild(button);
+                });
+            }
+
+            function renderWorkout(dayIndex) {
+                const day = workoutData.days[dayIndex];
+                workoutTitle.textContent = day.dayName;
+                workoutFocus.textContent = day.focus;
+                exercisesGrid.innerHTML = '';
+
+                if (day.schedule.length > 0) {
+                    day.schedule.forEach(exercise => {
+                        const exerciseCard = `
+                            <div class="bg-slate-50 border border-slate-200 p-4 rounded-lg flex items-center justify-between gap-4 hover:shadow-md transition-shadow">
+                                <div class="flex flex-grow items-center">
+                                    ${exercise.thumbnailUrl ? `<a href="${exercise.videoUrl}" target="_blank" rel="noopener noreferrer"><img src="${exercise.thumbnailUrl}" onerror="this.onerror=null; this.src='https://placehold.co/120x90/cccccc/333333?text=Video+Unavailable';" alt="${exercise.name} preview" class="exercise-thumbnail"></a>` : ''}
+                                    <div>
+                                        <h4 class="font-bold text-lg text-slate-800">${exercise.name}</h4>
+                                        <p class="text-slate-500">Sets: ${exercise.sets} &nbsp;&nbsp; Reps: ${exercise.reps}</p>
+                                    </div>
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <input type="checkbox" class="h-6 w-6 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500">
+                                </div>
+                            </div>`;
+                        exercisesGrid.innerHTML += exerciseCard;
+                    });
+                } else {
+                     exercisesGrid.innerHTML += `<div class="text-center p-8 text-slate-500">This is a recovery day. Focus on rest and light activity.</div>`;
+                }
+
+                if (day.cardio) {
+                    const cardioCard = `
+                        <div class="mt-8">
+                            <h4 class="text-xl font-bold text-slate-800 mb-2">Cardio</h4>
+                            <div class="bg-cyan-50 border border-cyan-200 p-4 rounded-lg">
+                                <p class="font-semibold text-cyan-800">${day.cardio.title} ${day.cardio.duration ? `(${day.cardio.duration})` : ''}</p>
+                                <p class="text-cyan-700 mt-1">${day.cardio.details}</p>
+                            </div>
+                        </div>
+                    `;
+                    exercisesGrid.innerHTML += cardioCard;
+                }
+                
+                if (day.core) {
+                    const coreSectionHtml = `
+                         <div class="mt-8">
+                            <h4 class="text-xl font-bold text-slate-800 mb-2">${day.core.title}</h4>
+                            <div class="space-y-4">
+                                ${day.core.schedule.map(exercise => `
+                                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-lg flex items-center justify-between gap-4 hover:shadow-md transition-shadow">
+                                        <div class="flex flex-grow items-center">
+                                            ${exercise.thumbnailUrl ? `<a href="${exercise.videoUrl}" target="_blank" rel="noopener noreferrer"><img src="${exercise.thumbnailUrl}" onerror="this.onerror=null; this.src='https://placehold.co/120x90/cccccc/333333?text=Video+Unavailable';" alt="${exercise.name} preview" class="exercise-thumbnail"></a>` : ''}
+                                            <div>
+                                                <h4 class="font-bold text-lg text-slate-800">${exercise.name}</h4>
+                                                <p class="text-slate-500">Sets: ${exercise.sets} &nbsp;&nbsp; Reps: ${exercise.reps}</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex-shrink-0">
+                                            <input type="checkbox" class="h-6 w-6 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500">
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                    exercisesGrid.innerHTML += coreSectionHtml;
+                }
+            }
+
+            function createMuscleChart() {
+                const ctx = document.getElementById('muscleGroupChart').getContext('2d');
+                const muscleCounts = {};
+                
+                workoutData.days.forEach(day => {
+                    if (day.muscles) {
+                        day.muscles.forEach(muscle => {
+                            if (muscleCounts[muscle]) {
+                                muscleCounts[muscle]++;
+                            } else {
+                                muscleCounts[muscle] = 1;
+                            }
+                        });
+                    }
+                });
+                
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(muscleCounts),
+                        datasets: [{
+                            label: 'Workouts per Muscle Group',
+                            data: Object.values(muscleCounts),
+                            backgroundColor: [
+                                '#06b6d4', // cyan-500
+                                '#0891b2', // cyan-600
+                                '#0e7490', // cyan-700
+                                '#155e75', // cyan-800
+                                '#164e63', // cyan-900
+                                '#64748b', // slate-500
+                                '#94a3b8', // slate-400
+                            ],
+                            borderColor: '#f8fafc', // slate-50
+                            borderWidth: 4,
+                            hoverOffset: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    font: {
+                                        size: 14,
+                                        family: "'Inter', sans-serif"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            const guidelinesBtn = document.getElementById('guidelinesBtn');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const modal = document.getElementById('guidelinesModal');
+            const modalContentBody = document.getElementById('modal-content-body');
+            
+            modalContentBody.innerHTML = workoutData.guidelines.map(g => 
+                `<div><h3 class="font-bold text-slate-700">${g.title}</h3><p>${g.text}</p></div>`
+            ).join('');
+
+            guidelinesBtn.addEventListener('click', () => {
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                modal.querySelector('.modal-content').classList.remove('scale-95');
+            });
+
+            closeModalBtn.addEventListener('click', () => {
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                modal.querySelector('.modal-content').classList.add('scale-95');
+            });
+            
+            modal.addEventListener('click', (e) => {
+                if(e.target === modal) {
+                    closeModalBtn.click();
+                }
+            });
+
+            renderDaySelector();
+            renderWorkout(activeDayIndex);
+            createMuscleChart();
+        });
+    </script>
+
+</body>
+</html>
